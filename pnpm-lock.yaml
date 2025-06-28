@@ -32,6 +32,9 @@ importers:
       '@tailwindcss/postcss':
         specifier: ^4.1.11
         version: 4.1.11
+      css-select:
+        specifier: ^5.1.0
+        version: 5.1.0
       postcss:
         specifier: ^8.5.6
         version: 8.5.6
@@ -2172,8 +2175,8 @@ packages:
       webpack:
         optional: true
 
-  css-select@5.2.1:
-    resolution: {integrity: sha512-O5tBe98mNUxm2ovZAqJ6uZqo1qVWrKAMQMf9uTK+M321MKKYX+cOORH3xvu17tYRuRM3mjJclcp/y4PNoI3U/A==}
+  css-select@5.1.0:
+    resolution: {integrity: sha512-nwoRF1rvRRnnCqqY7updORDsuqKzqYJ28+oSMaJMMgOauh3fvwHqMS7EZpIPqK8GL+g9mKxF1vP/ZjSeNjEVHg==}
 
   css-what@6.2.1:
     resolution: {integrity: sha512-efV3anJ1n8GGohPAXF3IVg0wu0AUyBN9px4Giwy7DeQVzzMmNTdo9TtOCJlyoprjNb6Szb/M1kxP86DNFimPIQ==}
@@ -6387,7 +6390,7 @@ snapshots:
 
   beasties@0.3.2:
     dependencies:
-      css-select: 5.2.1
+      css-select: 5.1.0
       css-what: 6.2.1
       dom-serializer: 2.0.0
       domhandler: 5.0.3
@@ -6668,7 +6671,7 @@ snapshots:
     optionalDependencies:
       webpack: 5.98.0(esbuild@0.25.4)
 
-  css-select@5.2.1:
+  css-select@5.1.0:
     dependencies:
       boolbase: 1.0.0
       css-what: 6.2.1

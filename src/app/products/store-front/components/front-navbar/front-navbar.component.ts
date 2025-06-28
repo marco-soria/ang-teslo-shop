@@ -1,10 +1,9 @@
 import { Component } from '@angular/core';
+import { RouterLink, RouterLinkActive } from '@angular/router';
 
 @Component({
   selector: 'app-front-navbar',
-  imports: [],
-  templateUrl: './front-navbar.component.html'
+  imports: [RouterLink, RouterLinkActive],
+  templateUrl: './front-navbar.component.html',
 })
-export class FrontNavbarComponent {
-
-}
+export class FrontNavbarComponent {}
