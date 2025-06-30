@@ -4,10 +4,9 @@
 <div
   class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 mt-2 gap-3"
 >
-  <app-product-card />
-  <app-product-card />
-  <app-product-card />
-  <app-product-card />
-  <app-product-card />
-  <app-product-card />
+  @for(product of productsResource.value()?.products; track $index){
+  <app-product-card [product]="product" />
+  } @empty {
+  <p class="">There are no products</p>
+  }
 </div>
