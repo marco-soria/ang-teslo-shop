@@ -10,3 +10,8 @@
   <p class="">There are no products</p>
   }
 </div>
+
+<app-pagination
+  [pages]="productsResource.value()?.pages ?? 0"
+  [currentPage]="paginationService.currentPage()"
+/>
