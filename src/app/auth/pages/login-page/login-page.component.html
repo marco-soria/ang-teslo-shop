@@ -3,7 +3,12 @@
   [formGroup]="loginForm"
   (ngSubmit)="onSubmit()"
 >
-  <label class="input input-bordered flex items-center gap-2">
+  <label
+    class="input input-bordered flex items-center gap-2"
+    [class.input-error]="
+      loginForm.get('email')?.invalid && loginForm.get('email')?.touched
+    "
+  >
     <svg
       xmlns="http://www.w3.org/2000/svg"
       viewBox="0 0 16 16"
@@ -18,14 +23,26 @@
       />
     </svg>
     <input
-      type="text"
+      type="email"
       class="grow"
-      placeholder="Correo electrónico"
+      placeholder="Email"
       formControlName="email"
     />
   </label>
+  @if (loginForm.get('email')?.invalid && loginForm.get('email')?.touched) {
+  <div class="text-error text-sm ml-2">
+    @if (loginForm.get('email')?.errors?.['required']) { Email is required } @if
+    (loginForm.get('email')?.errors?.['email']) { Please enter a valid email
+    address }
+  </div>
+  }
 
-  <label class="input input-bordered flex items-center gap-2">
+  <label
+    class="input input-bordered flex items-center gap-2"
+    [class.input-error]="
+      loginForm.get('password')?.invalid && loginForm.get('password')?.touched
+    "
+  >
     <svg
       xmlns="http://www.w3.org/2000/svg"
       viewBox="0 0 16 16"
@@ -45,8 +62,20 @@
       formControlName="password"
     />
   </label>
+  @if (loginForm.get('password')?.invalid && loginForm.get('password')?.touched)
+  {
+  <div class="text-error text-sm ml-2">
+    @if (loginForm.get('password')?.errors?.['required']) { Password is required
+    } @if (loginForm.get('password')?.errors?.['minlength']) { Password must be
+    at least 6 characters }
+  </div>
+  }
 
-  <button type="submit" class="btn btn-secondary">Login</button>
+  <button type="submit" class="btn btn-secondary" [disabled]="isPosting()">
+    @if (isPosting()) {
+    <span class="loading loading-spinner loading-sm"></span>
+    Signing in... } @else { Login }
+  </button>
 
   <p class="text-slate-700">
     Do not have an account?
@@ -57,8 +86,61 @@
 @if(hasError()) {
 <div
   role="alert"
-  class="alert alert-error animate-fadeIn fixed bottom-5 right-5 w-52"
+  [class]="
+    errorType() === 'not-found'
+      ? 'alert alert-warning animate-fadeIn fixed bottom-5 right-5 w-96 max-w-sm'
+      : errorType() === 'validation'
+      ? 'alert alert-info animate-fadeIn fixed bottom-5 right-5 w-80 max-w-sm'
+      : errorType() === 'credentials'
+      ? 'alert alert-error animate-fadeIn fixed bottom-5 right-5 w-80 max-w-sm'
+      : 'alert alert-error animate-fadeIn fixed bottom-5 right-5 w-80 max-w-sm'
+  "
 >
+  @if (errorType() === 'not-found') {
+  <!-- Warning icon for account not found -->
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    class="h-6 w-6 shrink-0 stroke-current"
+    fill="none"
+    viewBox="0 0 24 24"
+  >
+    <path
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      stroke-width="2"
+      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.232 19.5c-.77.833.192 2.5 1.732 2.5z"
+    />
+  </svg>
+  <div class="text-sm">
+    <div class="font-bold">Account Not Found</div>
+    <div>{{ errorMessage() }}</div>
+    <div class="mt-2">
+      <a routerLink="/auth/register" class="link link-primary text-xs">
+        Create a new account →
+      </a>
+    </div>
+  </div>
+  } @else if (errorType() === 'validation') {
+  <!-- Info icon for validation errors -->
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    class="h-6 w-6 shrink-0 stroke-current"
+    fill="none"
+    viewBox="0 0 24 24"
+  >
+    <path
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      stroke-width="2"
+      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+    />
+  </svg>
+  <div class="text-sm">
+    <div class="font-bold">Please Check Your Information</div>
+    <div>{{ errorMessage() }}</div>
+  </div>
+  } @else if (errorType() === 'credentials') {
+  <!-- Error icon for credential errors -->
   <svg
     xmlns="http://www.w3.org/2000/svg"
     class="h-6 w-6 shrink-0 stroke-current"
@@ -72,6 +154,32 @@
       d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
     />
   </svg>
-  <span>Please review the information entered.</span>
+  <div class="text-sm">
+    <div class="font-bold">Invalid Credentials</div>
+    <div>{{ errorMessage() }}</div>
+    <div class="mt-1 text-xs opacity-75">
+      Double-check your email and password
+    </div>
+  </div>
+  } @else {
+  <!-- Error icon for other errors -->
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    class="h-6 w-6 shrink-0 stroke-current"
+    fill="none"
+    viewBox="0 0 24 24"
+  >
+    <path
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      stroke-width="2"
+      d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+    />
+  </svg>
+  <div class="text-sm">
+    <div class="font-bold">Sign In Error</div>
+    <div>{{ errorMessage() }}</div>
+  </div>
+  }
 </div>
 }
