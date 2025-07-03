@@ -1,1 +1,156 @@
-<p>product-details works!</p>
+<h1 class="text-2xl font-bold">{{ product().title }}</h1>
+<div class="divider"></div>
+
+<form
+  [formGroup]="productForm"
+  class="grid grid-cols-1 sm:grid-cols-2 gap-4"
+  (ngSubmit)="onSubmit()"
+>
+  <!-- Datos generales -->
+  <div class="flex flex-col gap-2">
+    <h2 class="text-2xl font-bold h-12">General Information</h2>
+    <input
+      type="text"
+      placeholder="Title"
+      class="input input-bordered w-full"
+      formControlName="title"
+      [class.border-red-500]="productForm.get('title')?.errors ?? false"
+    />
+    <form-error-label [control]="productForm.get('title')!" />
+
+    <input
+      type="text"
+      placeholder="Slug"
+      class="input input-bordered w-full"
+      formControlName="slug"
+      [class.border-red-500]="productForm.get('slug')?.errors ?? false"
+    />
+    <form-error-label [control]="productForm.get('slug')!" />
+
+    <textarea
+      class="textarea textarea-bordered"
+      placeholder="Description"
+      rows="6"
+      formControlName="description"
+      [class.border-red-500]="productForm.get('description')?.errors ?? false"
+    ></textarea>
+
+    <form-error-label [control]="productForm.get('description')!" />
+
+    <h2 class="text-lg font-bold">Sales data</h2>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+      <div>
+        <input
+          type="number"
+          placeholder="Price"
+          class="input input-bordered w-full"
+          formControlName="price"
+          [class.border-red-500]="productForm.get('price')?.errors ?? false"
+        />
+        <form-error-label [control]="productForm.get('price')!" />
+      </div>
+
+      <div>
+        <input
+          type="number"
+          placeholder="Stock"
+          class="input input-bordered w-full"
+          formControlName="stock"
+          [class.border-red-500]="productForm.get('stock')?.errors ?? false"
+        />
+        <form-error-label [control]="productForm.get('stock')!" />
+      </div>
+    </div>
+
+    <!-- tags -->
+    <input
+      type="text"
+      placeholder="Tags"
+      class="input input-bordered w-full"
+      formControlName="tags"
+      [class.border-red-500]="productForm.get('tags')?.errors ?? false"
+    />
+    <form-error-label [control]="productForm.get('tags')!" />
+
+    <!-- Botones para el género -->
+    <div class="grid grid-cols-4 gap-2">
+      <!-- <button class="btn btn-sm btn-outline">Masculino</button> -->
+      <button
+        type="button"
+        class="btn btn-sm"
+        [class.btn-primary]="productForm.value.gender === 'men'"
+        (click)="productForm.patchValue({ gender: 'men' })"
+      >
+        Male
+      </button>
+      <button
+        type="button"
+        class="btn btn-sm"
+        [class.btn-accent]="productForm.value.gender === 'women'"
+        (click)="productForm.patchValue({ gender: 'women' })"
+      >
+        Female
+      </button>
+      <button
+        type="button"
+        class="btn btn-sm"
+        [class.btn-warning]="productForm.value.gender === 'kid'"
+        (click)="productForm.patchValue({ gender: 'kid' })"
+      >
+        Kid
+      </button>
+
+      <button
+        type="button"
+        class="btn btn-sm"
+        [class.btn-secondary]="productForm.value.gender === 'unisex'"
+        (click)="productForm.patchValue({ gender: 'unisex' })"
+      >
+        Unisex
+      </button>
+    </div>
+
+    <!-- <select class="select select-bordered w-full">
+      <option value="male">Masculino</option>
+      <option value="female">Femenino</option>
+      <option value="unisex">Unisex</option>
+    </select> -->
+
+    <!-- Sizes -->
+    <div class="grid grid-cols-6 gap-2">
+      @for (size of sizes; track size) {
+      <button
+        class="btn btn-sm"
+        type="button"
+        (click)="onSizeClicked(size)"
+        [class.btn-secondary]="productForm.value.sizes?.includes(size)"
+      >
+        {{ size }}
+      </button>
+      }
+    </div>
+  </div>
+
+  <!-- Imágenes -->
+  <div class="flex flex-col gap-2">
+    <div class="flex justify-end h-12">
+      <button class="btn btn-secondary" type="submit">
+        <!-- <span class="loading loading-spinner loading-sm"></span> -->
+
+        Save
+      </button>
+    </div>
+
+    <app-product-carousel [images]="product().images" />
+
+    <input type="file" class="file-input file-input-bordered w-full mt-4" />
+  </div>
+</form>
+
+@if (wasSaved()) {
+<div class="alert alert-success fixed bottom-4 right-4 w-80 animate-fadeIn">
+  <span>Data updated successfully</span>
+</div>
+
+}

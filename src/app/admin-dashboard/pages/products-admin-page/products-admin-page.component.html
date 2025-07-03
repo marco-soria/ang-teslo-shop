@@ -1,1 +1,34 @@
-<p>products-admin-page works!</p>
+<h1 class="text-2xl font-bold">List of products</h1>
+<h3 class="text-lg">
+  Total
+  <span class="text-accent">{{ productsResource.value()?.count }}</span>
+</h3>
+
+<div class="divider"></div>
+
+<div class="flex gap-2 items-center h-20">
+  <app-pagination
+    [pages]="productsResource.value()?.pages ?? 0"
+    [currentPage]="paginationService.currentPage()"
+  />
+
+  <select
+    class="select select-bordered w-32"
+    (change)="productsPerPage.set(+selectPerPage.value)"
+    #selectPerPage
+  >
+    <option value="10">10</option>
+    <option value="20">20</option>
+    <option value="50">50</option>
+    <option value="100">100</option>
+  </select>
+
+  <div class="flex flex-1"></div>
+
+  <button class="btn btn-primary" routerLink="/admin/products/new">
+    New product
+  </button>
+</div>
+
+<!-- Listado -->
+<product-table [products]="productsResource.value()?.products ?? []" />

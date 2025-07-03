@@ -80,6 +80,11 @@
     </ul>
   </div>
   <div class="navbar-end gap-4">
+    @if (authService.isAdmin()) {
+    <a routerLink="/admin" class="btn text-accent">Admin Panel</a>
+    }
+    <!--  -->
+
     @if ( authService.authStatus() === 'authenticated' ) {
     <!-- User Menu Dropdown -->
     <div class="dropdown dropdown-end">
