@@ -1,7 +1,26 @@
+/**
+ * Servicio de Autenticación con Caché Inteligente
+ *
+ * Características del caché:
+ * - Duración del caché: 5 minutos
+ * - Auto-refresh cuando el token está cerca de expirar (10 min antes)
+ * - Validación local de expiración del token JWT
+ * - Invalidación automática en login/logout/errores
+ *
+ * Métodos públicos adicionales:
+ * - forceAuthCheck(): Fuerza una verificación ignorando el caché
+ * - getCacheInfo(): Obtiene información del estado del caché (debugging)
+ *
+ * Logging:
+ * - 🟢 Using cached auth status
+ * - 🔄 Checking auth status with backend / Token near expiration, refreshing...
+ * - 🔴 Token expired locally, logging out
+ */
+
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { computed, inject, Injectable, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
-import { catchError, map, Observable, of } from 'rxjs';
+import { catchError, map, Observable, of, timer } from 'rxjs';
 import { environment } from 'src/environments/environment';
 
 import { AuthResponse } from '@auth/interfaces/auth-response.interface';
@@ -9,6 +28,13 @@ import { AuthResult } from '@auth/interfaces/auth-result.interface';
 import { User } from '@auth/interfaces/user.interface';
 
 type AuthStatus = 'checking' | 'authenticated' | 'not-authenticated';
+
+interface AuthCache {
+  isValid: boolean;
+  lastChecked: number;
+  tokenExpiration: number | null;
+}
+
 const baseUrl = environment.baseUrl;
 
 @Injectable({ providedIn: 'root' })
@@ -18,6 +44,16 @@ export class AuthService {
   private _token = signal<string | null>(localStorage.getItem('token'));
 
   private http = inject(HttpClient);
+
+  // Configuración del caché
+  private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutos en millisegundos
+  private readonly TOKEN_REFRESH_THRESHOLD = 10 * 60 * 1000; // 10 minutos antes de expirar
+
+  private authCache: AuthCache = {
+    isValid: false,
+    lastChecked: 0,
+    tokenExpiration: null,
+  };
 
   checkStatusResource = rxResource({
     stream: () => this.checkStatus(),
@@ -37,6 +73,11 @@ export class AuthService {
   token = computed(this._token);
   isAdmin = computed(() => this._user()?.roles.includes('admin') ?? false);
 
+  constructor() {
+    // Configurar auto-refresh del token cuando esté cerca de expirar
+    this.setupTokenAutoRefresh();
+  }
+
   login(email: string, password: string): Observable<AuthResult> {
     return this.http
       .post<AuthResponse>(`${baseUrl}/auth/login`, {
@@ -46,6 +87,7 @@ export class AuthService {
       .pipe(
         map((resp) => {
           this.handleAuthSuccess(resp);
+          this.updateCache(true); // Actualizar caché con estado válido
           return {
             success: true,
             message: 'Welcome! You have successfully signed in.',
@@ -69,6 +111,7 @@ export class AuthService {
       .pipe(
         map((resp) => {
           this.handleAuthSuccess(resp);
+          this.updateCache(true); // Actualizar caché con estado válido
           return {
             success: true,
             message: 'Account created successfully! Welcome to our store.',
@@ -84,9 +127,25 @@ export class AuthService {
     const token = localStorage.getItem('token');
     if (!token) {
       this.logout();
+      this.invalidateCache();
       return of(false);
     }
 
+    // Verificar si el caché es válido y no ha expirado
+    if (this.isCacheValid()) {
+      console.log('🟢 Using cached auth status');
+      return of(this.authCache.isValid);
+    }
+
+    // Verificar si el token ha expirado localmente
+    if (this.isTokenExpiredLocally()) {
+      console.log('🔴 Token expired locally, logging out');
+      this.logout();
+      this.invalidateCache();
+      return of(false);
+    }
+
+    console.log('🔄 Checking auth status with backend');
     return this.http
       .get<AuthResponse>(`${baseUrl}/auth/check-status`, {
         // headers: {
@@ -94,8 +153,16 @@ export class AuthService {
         // },
       })
       .pipe(
-        map((resp) => this.handleAuthSuccess(resp)),
-        catchError((error: any) => this.handleAuthError(error))
+        map((resp) => {
+          const isValid = this.handleAuthSuccess(resp);
+          this.updateCache(isValid);
+          return isValid;
+        }),
+        catchError((error: any) => {
+          this.handleAuthError(error);
+          this.updateCache(false);
+          return of(false);
+        })
       );
   }
 
@@ -105,6 +172,7 @@ export class AuthService {
     this._authStatus.set('not-authenticated');
 
     localStorage.removeItem('token');
+    this.invalidateCache();
   }
 
   private handleAuthSuccess({ token, user }: AuthResponse) {
@@ -114,11 +182,16 @@ export class AuthService {
 
     localStorage.setItem('token', token);
 
+    // Extraer la expiración del token JWT si está disponible
+    const tokenExpiration = this.extractTokenExpiration(token);
+    this.authCache.tokenExpiration = tokenExpiration;
+
     return true;
   }
 
-  private handleAuthError(error: any) {
+  private handleAuthError(error: any): Observable<boolean> {
     this.logout();
+    this.invalidateCache();
     return of(false);
   }
 
@@ -126,6 +199,7 @@ export class AuthService {
     error: HttpErrorResponse
   ): Observable<AuthResult> {
     this.logout();
+    this.invalidateCache();
 
     let message = "We couldn't create your account. Please try again.";
 
@@ -203,6 +277,7 @@ export class AuthService {
 
   private handleLoginError(error: HttpErrorResponse): Observable<AuthResult> {
     this.logout();
+    this.invalidateCache();
 
     let message = "We couldn't sign you in. Please try again.";
 
@@ -329,5 +404,118 @@ export class AuthService {
       capitalized.endsWith('?')
       ? capitalized
       : capitalized + '.';
+  }
+
+  /**
+   * Métodos para manejo del caché de autenticación
+   */
+
+  /**
+   * Verifica si el caché es válido basado en el tiempo transcurrido
+   */
+  private isCacheValid(): boolean {
+    const now = Date.now();
+    const timeSinceLastCheck = now - this.authCache.lastChecked;
+
+    // El caché es válido si:
+    // 1. Ha sido marcado como válido
+    // 2. No ha pasado el tiempo de duración del caché
+    // 3. El token no está cerca de expirar
+    return (
+      this.authCache.isValid &&
+      timeSinceLastCheck < this.CACHE_DURATION &&
+      !this.isTokenNearExpiration()
+    );
+  }
+
+  /**
+   * Actualiza el estado del caché
+   */
+  private updateCache(isValid: boolean): void {
+    this.authCache.isValid = isValid;
+    this.authCache.lastChecked = Date.now();
+  }
+
+  /**
+   * Invalida el caché forzando una nueva verificación en la próxima consulta
+   */
+  private invalidateCache(): void {
+    this.authCache.isValid = false;
+    this.authCache.lastChecked = 0;
+    this.authCache.tokenExpiration = null;
+  }
+
+  /**
+   * Verifica si el token ha expirado localmente
+   */
+  private isTokenExpiredLocally(): boolean {
+    if (!this.authCache.tokenExpiration) {
+      return false; // Si no tenemos la expiración, no podemos verificar localmente
+    }
+
+    return Date.now() >= this.authCache.tokenExpiration;
+  }
+
+  /**
+   * Verifica si el token está cerca de expirar
+   */
+  private isTokenNearExpiration(): boolean {
+    if (!this.authCache.tokenExpiration) {
+      return false;
+    }
+
+    const timeUntilExpiration = this.authCache.tokenExpiration - Date.now();
+    return timeUntilExpiration <= this.TOKEN_REFRESH_THRESHOLD;
+  }
+
+  /**
+   * Extrae la fecha de expiración del token JWT
+   */
+  private extractTokenExpiration(token: string): number | null {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      if (payload.exp) {
+        return payload.exp * 1000; // Convertir de segundos a millisegundos
+      }
+    } catch (error) {
+      console.warn('Error al extraer expiración del token:', error);
+    }
+    return null;
+  }
+
+  /**
+   * Configura el auto-refresh del token
+   */
+  private setupTokenAutoRefresh(): void {
+    // Verificar cada minuto si el token necesita ser refrescado
+    timer(0, 60000).subscribe(() => {
+      if (
+        this._authStatus() === 'authenticated' &&
+        this.isTokenNearExpiration()
+      ) {
+        console.log('🔄 Token near expiration, refreshing...');
+        this.invalidateCache();
+        // Trigger a new status check
+        this.checkStatus().subscribe();
+      }
+    });
+  }
+
+  /**
+   * Método público para forzar una verificación del estado de autenticación
+   */
+  forceAuthCheck(): Observable<boolean> {
+    this.invalidateCache();
+    return this.checkStatus();
+  }
+
+  /**
+   * Método público para obtener información del caché (útil para debugging)
+   */
+  getCacheInfo(): AuthCache & { timeSinceLastCheck: number } {
+    return {
+      ...this.authCache,
+      timeSinceLastCheck: Date.now() - this.authCache.lastChecked,
+    };
   }
 }
